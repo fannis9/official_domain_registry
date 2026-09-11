@@ -12,6 +12,9 @@ const selected = ref(new Set());
 const batchReason = ref("");
 const CATEGORIES = ["software", "nonprofit", "technology", "infrastructure", "finance", "government", "education", "media", "ecommerce", "gaming", "ai", "cloud", "security", "other"];
 
+const reasonModal = ref(null);
+const reasonInput = ref("");
+
 const STATUS = { pending: ["待审核", "warn"], verified: ["已验证", "ok"], rejected: ["已驳回", "err"], revoked: ["已撤销", "err"] };
 const ACTION_LABELS = { submitted: "提交", verified: "审核通过", rejected: "驳回", revoked: "撤销", restored: "恢复验证", reopened: "重新打开", type_changed: "类型调整", category_changed: "类别调整", org_changed: "组织调整", org_removed: "移出组织", organized: "信息整理", ownership_verified: "所有权验证通过", official_confirmed: "官方身份确认" };
 
@@ -39,18 +42,34 @@ async function loadStats() {
   } catch { /* ignore */ }
 }
 
+async function refreshAll() {
+  await load();
+  await loadStats();
+}
+
 async function act(d, action, payload = {}) {
   try {
     await api(`/api/v1/admin/domains/${d.id}/${action}`, { method: "POST", admin: true, body: payload });
-    await load();
-    await loadStats();
+    await refreshAll();
   } catch (e) {
     feedback.value = e instanceof ApiError ? e.message : "操作失败";
   }
 }
 
+function openReason(d, action, title) {
+  reasonModal.value = { d, action, title };
+  reasonInput.value = "";
+}
+
+async function confirmReason() {
+  const m = reasonModal.value;
+  if (!m) return;
+  reasonModal.value = null;
+  await act(m.d, m.action, { reason: reasonInput.value.trim() });
+}
+
 async function saveOrg(d) {
-  const org = prompt("组织名（修改后域名归入该组织）：", d.organization);
+  const org = window.prompt("组织名（修改后域名归入该组织）：", d.organization);
   if (!org || !org.trim()) return;
   await act(d, "set-org", { organization: org.trim() });
 }
@@ -67,8 +86,7 @@ async function batch(action) {
       method: "POST", admin: true,
       body: { ids: Array.from(selected.value).join(","), action, reason: batchReason.value },
     });
-    await load();
-    await loadStats();
+    await refreshAll();
   } catch (e) {
     feedback.value = e instanceof ApiError ? e.message : "批量操作失败";
   }
@@ -118,7 +136,7 @@ onMounted(() => { load(); loadStats(); });
     <button class="tab" :class="{ active: filters.status === 'revoked' }" @click="setStatus('revoked')">已撤销 {{ stats.revoked }}</button>
   </div>
 
-  <div v-if="feedback" class="alert err">{{ feedback }}</div>
+  <div v-if="feedback" class="alert err">{{ feedback }}<button class="btn secondary small" style="margin-left:10px" @click="feedback = ''">关闭</button></div>
 
   <div class="toolbar">
     <input v-model.trim="filters.q" placeholder="搜索域名或组织…" style="flex: 1 1 220px" @keyup.enter="filters.page = 1; load()">
@@ -197,11 +215,11 @@ onMounted(() => { load(); loadStats(); });
         </div>
         <div v-if="d.status === 'pending'" style="display: flex; gap: 6px">
           <button class="btn ok small" style="flex: 1" @click="act(d, 'verify')">通过</button>
-          <button class="btn danger small" style="flex: 1" @click="act(d, 'reject', { reason: prompt('驳回理由（可选）') || '' })">驳回</button>
+          <button class="btn danger small" style="flex: 1" @click="openReason(d, 'reject', '驳回域名 ' + d.domain)">驳回</button>
         </div>
         <div v-else-if="d.status === 'verified'">
           <button v-if="d.registry_type === 'official' && !d.official_verified" class="btn accent small block" @click="act(d, 'confirm-official')">确认官方身份</button>
-          <button class="btn danger small block" @click="act(d, 'revoke', { reason: prompt('撤销理由（可选）') || '' })">撤销</button>
+          <button class="btn danger small block" @click="openReason(d, 'revoke', '撤销域名 ' + d.domain)">撤销</button>
         </div>
         <div v-else-if="d.status === 'revoked'" style="display: flex; gap: 6px">
           <button class="btn ok small" style="flex: 1" @click="act(d, 'restore')">恢复验证</button>
@@ -221,6 +239,18 @@ onMounted(() => { load(); loadStats(); });
     <div style="display: flex; gap: 8px">
       <button class="btn secondary" :disabled="filters.page <= 1" @click="filters.page--; load()">上一页</button>
       <button class="btn" :disabled="filters.page >= totalPages" @click="filters.page++; load()">下一页</button>
+    </div>
+  </div>
+
+  <div v-if="reasonModal" class="modal-overlay" @click.self="reasonModal = null">
+    <div class="modal card">
+      <h3>{{ reasonModal.title }}</h3>
+      <p style="color: var(--text)">理由（可选，会写入审核日志）：</p>
+      <input v-model.trim="reasonInput" placeholder="例如：域名信息不实" style="margin-bottom: 14px">
+      <div class="modal-actions">
+        <button class="btn secondary" @click="reasonModal = null">取消</button>
+        <button class="btn danger" @click="confirmReason">确认{{ reasonModal.action === 'reject' ? '驳回' : '撤销' }}</button>
+      </div>
     </div>
   </div>
 </template>

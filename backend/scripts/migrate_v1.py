@@ -9,7 +9,7 @@ import sys
 from datetime import datetime, timezone
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.config import settings
 from app.models import AuditLog, Domain, User
@@ -32,12 +32,13 @@ async def migrate(v1_path: str):
     conn.row_factory = sqlite3.Row
 
     engine = create_async_engine(settings.database_url)
-    from app.db import Base
+    from app.models import Base
 
     async with engine.begin() as txn:
         await txn.run_sync(Base.metadata.create_all)
 
-    async with engine.begin() as session:
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as session:
         # users
         users = conn.execute("SELECT id, username, email, password_hash, created_at FROM users").fetchall()
         id_map = {}
@@ -99,6 +100,8 @@ async def migrate(v1_path: str):
                     created_at=_aware(log["created_at"]),
                 )
             )
+
+        await session.commit()
 
     conn.close()
     await engine.dispose()

@@ -20,7 +20,7 @@ def upgrade() -> None:
         sa.Column("username", sa.String(64), nullable=False),
         sa.Column("email", sa.String(320), nullable=True),
         sa.Column("password_hash", sa.String(256), nullable=False),
-        sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint("username", name="uq_users_username"),
     )
@@ -40,8 +40,8 @@ def upgrade() -> None:
         sa.Column("ownership_method", sa.String(30), nullable=True),
         sa.Column("submitter_email", sa.String(320), nullable=True),
         sa.Column("submitter_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
-        sa.Column("ownership_verified", sa.Boolean(), nullable=False, server_default=sa.text("0")),
-        sa.Column("official_verified", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("ownership_verified", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column("official_verified", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("requested_type", sa.String(20), nullable=False, server_default="free"),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -92,7 +92,7 @@ def upgrade() -> None:
         sa.Column("key_hash", sa.String(64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("revoked", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("revoked", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.UniqueConstraint("key_hash", name="uq_api_keys_key_hash"),
     )
     op.create_index("ix_api_keys_user_id", "api_keys", ["user_id"])

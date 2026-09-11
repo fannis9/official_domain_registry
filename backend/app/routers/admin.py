@@ -396,7 +396,14 @@ async def orgs(_: User = Depends(require_admin), db: AsyncSession = Depends(get_
         groups.setdefault(d.organization, []).append(
             {"id": d.id, "domain": d.domain, "status": d.status, "registry_type": d.registry_type}
         )
-    return [{"organization": k, "members": v} for k, v in sorted(groups.items(), key=lambda kv: kv[0].lower())]
+    result = []
+    for org_name, members in groups.items():
+        # 组织名=唯一成员域名 的是独立域名,不算组织,不在组织管理页显示
+        if len(members) == 1 and members[0]["domain"] == org_name:
+            continue
+        result.append({"organization": org_name, "members": members})
+    result.sort(key=lambda kv: kv["organization"].lower())
+    return result
 
 
 @router.post("/orgs/rename")

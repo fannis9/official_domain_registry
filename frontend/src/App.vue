@@ -1,11 +1,22 @@
 <script setup>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+import { tokenStore } from "./api.js";
 import { useAuth } from "./stores/auth.js";
 
 const auth = useAuth();
+const route = useRoute();
+
+const isAdmin = computed(() => route.path.startsWith("/admin"));
 
 function logout() {
   auth.logout();
   window.location.href = "/login";
+}
+
+function adminLogout() {
+  tokenStore.clearAdmin();
+  window.location.href = "/admin/login";
 }
 </script>
 
@@ -16,7 +27,16 @@ function logout() {
         <svg viewBox="0 0 24 24"><path fill="var(--accent)" d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3z"/><path fill="var(--card)" d="M10.6 14.6l-2.2-2.2-1.4 1.4 3.6 3.6 6.4-6.4-1.4-1.4z"/></svg>
         Official Domain Registry
       </a>
-      <div class="nav-links">
+      <div class="nav-links" v-if="isAdmin">
+        <router-link to="/">返回公共站</router-link>
+        <template v-if="tokenStore.admin">
+          <router-link to="/admin" exact-active-class="active">审核队列</router-link>
+          <router-link to="/admin/orgs" active-class="active">组织管理</router-link>
+          <router-link to="/admin/users" active-class="active">用户管理</router-link>
+          <button @click="adminLogout">退出</button>
+        </template>
+      </div>
+      <div class="nav-links" v-else>
         <router-link to="/">提交</router-link>
         <router-link to="/domains">域名库</router-link>
         <template v-if="auth.loggedIn">

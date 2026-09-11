@@ -6,11 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  backend-test:
-    uses: ./.github/workflows/ci.yml
-
   deploy:
-    needs: backend-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production

@@ -39,7 +39,7 @@ def _apply_level(row: Domain):
 
 @router.post("/login")
 async def login(payload: dict, request: __import__("fastapi").Request, db: AsyncSession = Depends(get_db)):
-    from app.security import create_access_token
+    from app.security import create_access_token, create_refresh_token
 
     ip = request.client.host if request.client else "unknown"
     if await check_rate(db, hash_ip(ip), "admin_login", 5):
@@ -59,7 +59,8 @@ async def login(payload: dict, request: __import__("fastapi").Request, db: Async
             await db.commit()
             await db.refresh(user)
         access, _ = create_access_token(str(user.id), {"username": user.username, "is_admin": True})
-        return {"access_token": access, "token_type": "bearer"}
+        refresh, _ = create_refresh_token(str(user.id))
+        return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
     raise HTTPException(401, "账号或密码错误")
 
 

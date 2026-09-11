@@ -19,8 +19,10 @@ export const tokenStore = {
   set user(v) { v ? localStorage.setItem(USER_KEY, JSON.stringify(v)) : localStorage.removeItem(USER_KEY); },
   get admin() { return localStorage.getItem(ADMIN_KEY) || ""; },
   set admin(v) { v ? localStorage.setItem(ADMIN_KEY, v) : localStorage.removeItem(ADMIN_KEY); },
+  get adminRefresh() { return localStorage.getItem("odr_admin_refresh_token") || ""; },
+  set adminRefresh(v) { v ? localStorage.setItem("odr_admin_refresh_token", v) : localStorage.removeItem("odr_admin_refresh_token"); },
   clearUser() { this.access = ""; this.refresh = ""; this.user = null; },
-  clearAdmin() { this.admin = ""; },
+  clearAdmin() { this.admin = ""; this.adminRefresh = ""; },
 };
 
 async function request(path, { method = "GET", body, token } = {}) {
@@ -52,6 +54,19 @@ async function tryRefresh() {
   }
 }
 
+async function tryRefreshAdmin() {
+  const refresh = tokenStore.adminRefresh;
+  if (!refresh) return false;
+  try {
+    const data = await request("/api/v1/auth/refresh", { method: "POST", body: { refresh_token: refresh } });
+    tokenStore.admin = data.access_token;
+    tokenStore.adminRefresh = data.refresh_token || refresh;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function api(path, { method = "GET", body, auth = false, admin = false, retry = true } = {}) {
   const token = admin ? tokenStore.admin : tokenStore.access;
   try {
@@ -63,6 +78,13 @@ export async function api(path, { method = "GET", body, auth = false, admin = fa
       }
       tokenStore.clearUser();
       window.dispatchEvent(new Event("odr-auth-expired"));
+    }
+    if (e instanceof ApiError && e.status === 401 && admin && retry) {
+      if (await tryRefreshAdmin()) {
+        return api(path, { method, body, auth, admin, retry: false });
+      }
+      tokenStore.clearAdmin();
+      window.location.href = "/admin/login";
     }
     throw e;
   }

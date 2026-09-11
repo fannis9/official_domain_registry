@@ -15,6 +15,7 @@ async function submit() {
   try {
     const data = await api("/api/v1/admin/login", { method: "POST", body: { username: username.value, password: password.value } });
     tokenStore.admin = data.access_token;
+    tokenStore.adminRefresh = data.refresh_token || "";
     router.push("/admin");
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : "网络错误";

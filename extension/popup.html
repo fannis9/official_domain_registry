@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light; --bg:#f4f6fb; --card:#fff; --text:#101828; --muted:#667085; --line:#e4e7ec; --accent:#2563eb; --ok:#067647; --warn:#b54708; --err:#b42318; }
+  * { box-sizing: border-box; }
+  body { width: 340px; margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .head { display: flex; align-items: center; gap: 9px; padding: 14px 16px 10px; }
+  .head svg { width: 24px; height: 24px; flex: none; }
+  .head b { font-size: 14.5px; }
+  .head span { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+  .card { margin: 0 12px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .domain { font-size: 16px; font-weight: 700; word-break: break-all; margin-bottom: 6px; }
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .badge.verified { background: #ecfdf3; color: var(--ok); }
+  .badge.pending { background: #fffaeb; color: var(--warn); }
+  .badge.rejected, .badge.revoked { background: #fef3f2; color: var(--err); }
+  .badge.unknown { background: #eef1f6; color: var(--muted); }
+  .badge.err { background: #fef3f2; color: var(--err); }
+  .meta { color: var(--muted); font-size: 12.5px; margin-top: 8px; line-height: 1.6; }
+  .meta b { color: var(--text); font-weight: 600; }
+  .tip { color: var(--muted); font-size: 12px; padding: 0 16px 6px; line-height: 1.6; }
+  .row { display: flex; gap: 8px; margin: 0 12px 12px; }
+  button { flex: 1; border: 0; border-radius: 10px; padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--line); }
+  .settings { margin: 0 12px 14px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; }
+  .settings label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .settings .line { display: flex; gap: 6px; }
+  input { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 12.5px; outline: none; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <svg viewBox="0 0 24 24"><path fill="#2563eb" d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3z"/><path fill="#fff" d="M10.6 14.6l-2.2-2.2-1.4 1.4 3.6 3.6 6.4-6.4-1.4-1.4z"/></svg>
+    <b>官方域名核验</b>
+    <span>Official Domain Registry</span>
+  </div>
+
+  <div class="card" id="login-bar" style="display:none;border:1px solid #fedf89;background:#fffaeb">
+    <div style="font-size:13px;color:#b54708;font-weight:600">未配置 API Key</div>
+    <div style="font-size:12px;color:#b54708;margin-top:4px">在网站登录后到个人中心生成 API Key 并填入下方，才能提交域名。</div>
+    <div style="margin-top:8px">
+      <button class="btn-primary" id="go-login" style="width:100%">去网站登录</button>
+    </div>
+  </div>
+
+  <div class="card" id="user-bar" style="display:none">
+    <div style="font-size:12.5px;color:var(--muted)">已登录：<b id="username" style="color:var(--text)">—</b></div>
+  </div>
+
+  <div class="card" id="status-card">
+    <div class="domain" id="domain">—</div>
+    <span class="badge unknown" id="badge">加载中</span>
+    <div class="meta" id="meta"></div>
+  </div>
+
+  <p class="tip" id="tip">打开任意网页后，插件会自动查询该域名在注册库中的状态，并显示在工具栏图标上。</p>
+
+  <div class="row">
+    <button class="btn-primary" id="refresh">重新核验</button>
+    <button class="btn-secondary" id="submit-domain" style="display:none">提交审核</button>
+    <button class="btn-secondary" id="open-list">打开域名库</button>
+  </div>
+
+  <p class="tip hidden" id="feedback"></p>
+
+  <div class="settings">
+    <label>服务器地址</label>
+    <div class="line">
+      <input id="server-url" placeholder="https://registry.fannis.cc.cd">
+      <button class="btn-secondary" id="save-server" style="flex:0 0 auto">保存</button>
+    </div>
+    <label style="margin-top:10px">API Key（网站个人中心生成）</label>
+    <div class="line">
+      <input id="api-key" placeholder="odrk.xxx">
+      <button class="btn-secondary" id="save-api-key" style="flex:0 0 auto">保存</button>
+    </div>
+    <label style="margin-top:10px;display:flex;align-items:center;gap:6px;color:var(--text)">
+      <input type="checkbox" id="auto-submit" style="flex:none;width:auto">
+      自动提交未收录域名（默认关闭；开启后浏览的未收录域名会上报服务器）
+    </label>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

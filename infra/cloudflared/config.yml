@@ -1,0 +1,11 @@
+# cloudflared 隧道配置(v2 部署用)
+# 将 infra/cloudflared/credentials.json 填入现有隧道的凭据(AccountTag/TunnelID/TunnelSecret),
+# 或改用 token 模式: 删除 credentials-file 行, 用 `cloudflared tunnel run --token <TOKEN>`
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/credentials.json
+ingress:
+  - hostname: registry.fannis.cc.cd
+    service: http://frontend:80
+  - hostname: admin.fannis.cc.cd
+    service: http://frontend:80
+  - service: http_status:404

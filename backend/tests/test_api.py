@@ -134,7 +134,7 @@ def test_admin_ops(monkeypatch):
         assert r.status_code == 200, r.text
         ah = {"Authorization": f"Bearer {r.json()['access_token']}"}
 
-        rows = adm.get("/api/v1/admin/domains", params={"status": "pending"}, headers=ah).json()
+        rows = adm.get("/api/v1/admin/domains", params={"status": "pending"}, headers=ah).json()["items"]
         did = next(d["id"] for d in rows if d["domain"] == "admin-demo.example")
 
         r = adm.post(f"/api/v1/admin/domains/{did}/verify", json={}, headers=ah)

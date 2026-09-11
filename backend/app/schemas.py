@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field, field_validator
 import ipaddress
 import re
@@ -51,6 +53,29 @@ class DomainOut(BaseModel):
 
 class DomainSubmitOut(DomainOut):
     verification_token: str
+
+
+class AuditLogOut(BaseModel):
+    action: str
+    actor: str
+    detail: str | None
+    created_at: datetime | None
+
+
+class AdminDomainOut(DomainOut):
+    notes: str | None = None
+    submitter_username: str | None = None
+    submitter_email: str | None = None
+    created_at: datetime | None = None
+    audit_logs: list[AuditLogOut] = []
+
+
+class AdminQueueOut(BaseModel):
+    items: list[AdminDomainOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 class EmailUpdate(BaseModel):

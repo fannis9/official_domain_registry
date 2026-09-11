@@ -8,7 +8,7 @@ from app.config import settings
 from app.db import get_db
 from app.deps import check_rate, require_admin
 from app.models import AuditLog, Domain, User
-from app.schemas import DomainOut
+from app.schemas import AdminDomainOut, AdminQueueOut, AuditLogOut, DomainOut
 from app.security import hash_ip, hash_password, utcnow, verify_password
 from app.services import verification as vemail
 
@@ -63,7 +63,22 @@ async def login(payload: dict, request: __import__("fastapi").Request, db: Async
     raise HTTPException(401, "账号或密码错误")
 
 
-@router.get("/domains", response_model=list[DomainOut])
+@router.get("/stats")
+async def stats(_: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    async def count(cond):
+        return (await db.scalar(select(func.count()).select_from(Domain).where(cond))) or 0
+
+    return {
+        "pending": await count(Domain.status == "pending"),
+        "verified": await count(Domain.status == "verified"),
+        "rejected": await count(Domain.status == "rejected"),
+        "revoked": await count(Domain.status == "revoked"),
+        "official": await count(Domain.registry_type == "official"),
+        "free": await count(Domain.registry_type == "free"),
+    }
+
+
+@router.get("/domains", response_model=AdminQueueOut)
 async def queue(
     q: str = "",
     status: str = "",
@@ -75,24 +90,70 @@ async def queue(
 ):
     page_size = 50
     q = q.strip().lower()
-    stmt = select(Domain)
+    conds = []
     if q:
         pattern = f"%{q}%"
-        stmt = stmt.where(or_(Domain.domain.ilike(pattern), Domain.organization.ilike(pattern)))
+        conds.append(or_(Domain.domain.ilike(pattern), Domain.organization.ilike(pattern)))
     if status in ("pending", "verified", "rejected", "revoked"):
-        stmt = stmt.where(Domain.status == status)
+        conds.append(Domain.status == status)
     if type in ("official", "free"):
-        stmt = stmt.where(Domain.registry_type == type)
+        conds.append(Domain.registry_type == type)
+
+    total = (await db.scalar(select(func.count()).select_from(Domain).where(*conds))) or 0
+    total_pages = max((total + page_size - 1) // page_size, 1)
+    page = min(page, total_pages)
+
     order = {
         "newest": Domain.created_at.desc(),
         "oldest": Domain.created_at.asc(),
         "domain": Domain.domain.asc(),
         "reviewed": Domain.last_reviewed_at.desc(),
     }.get(sort, Domain.created_at.desc())
-    rows = await db.scalars(
-        stmt.order_by(order).offset((page - 1) * page_size).limit(page_size)
-    )
-    return list(rows)
+    rows = (await db.scalars(
+        select(Domain).where(*conds).order_by(order).offset((page - 1) * page_size).limit(page_size)
+    )).all()
+
+    submitter_ids = {d.submitter_id for d in rows if d.submitter_id}
+    submitter_map = {}
+    if submitter_ids:
+        submitter_map = {
+            u.id: u.username for u in (await db.scalars(select(User).where(User.id.in_(submitter_ids)))).all()
+        }
+
+    items = []
+    for d in rows:
+        logs = (await db.scalars(
+            select(AuditLog).where(AuditLog.domain_id == d.id).order_by(AuditLog.created_at.desc()).limit(3)
+        )).all()
+        items.append(
+            AdminDomainOut(
+                id=d.id,
+                domain=d.domain,
+                organization=d.organization,
+                category=d.category,
+                status=d.status,
+                verification_level=d.verification_level,
+                registry_type=d.registry_type,
+                requested_type=d.requested_type,
+                ownership_verified=d.ownership_verified,
+                official_verified=d.official_verified,
+                notes=d.notes,
+                submitter_username=submitter_map.get(d.submitter_id),
+                submitter_email=d.submitter_email,
+                created_at=d.created_at,
+                audit_logs=[
+                    AuditLogOut(action=log.action, actor=log.actor, detail=log.detail, created_at=log.created_at)
+                    for log in logs
+                ],
+            )
+        )
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
 
 
 @router.get("/domains/{domain_id}", response_model=DomainOut)
